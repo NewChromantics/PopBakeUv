@@ -39,6 +39,23 @@ public class GenerateUv : MonoBehaviour {
 		ExplodedMesh = mf.mesh;
 	}
 
+	void SetTriangleMeta(Material DrawTriangleMat,Mesh mesh,int MeshTriangleIndex,int ShaderTriangleIndex)
+	{
+		var Verts = mesh.vertices;
+		var Indexes = mesh.GetIndices (0);
+		for ( int v=0;	v<3;	v++ )
+		{
+			//	get world pos
+			var LocalPos = Verts[Indexes[(MeshTriangleIndex*3) + v]];
+			var WorldPos = this.transform.TransformPoint (LocalPos);
+
+			string Uniform = "Triangle_Pos_" + ShaderTriangleIndex + "_" + v;
+			DrawTriangleMat.SetVector(Uniform, new Vector4( WorldPos.x, WorldPos.y, WorldPos.z, 0) );
+		}
+
+	}
+
+
 	public void GenerateUvs() 
 	{
 		ExplodeMesh ();
@@ -84,6 +101,7 @@ public class GenerateUv : MonoBehaviour {
 
 			for (int t = 0;	t < TriCount;	t++) {
 				SetTriangle (DrawTriangleMat, Mesh, uvs, t, 0);
+				SetTriangleMeta (DrawTriangleMat, Mesh, t, 0);
 				Graphics.Blit (LastTexture, TempTexture, DrawTriangleMat);
 				Graphics.Blit (TempTexture, LastTexture);
 			}

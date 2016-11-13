@@ -1,4 +1,4 @@
-﻿Shader "NewChromantics/DrawTriangle"
+﻿Shader "NewChromantics/DrawTriangleWorldPos"
 {
 	Properties
 	{
@@ -9,6 +9,10 @@
 		Triangle_Uv_0_0("Triangle_Uv_0_0", VECTOR ) = (0,0,0,0)
 		Triangle_Uv_0_1("Triangle_Uv_0_1", VECTOR ) = (0,0,0,0)
 		Triangle_Uv_0_2("Triangle_Uv_0_2", VECTOR ) = (0,0,0,0)
+
+		Triangle_Pos_0_0("Triangle_Pos_0_0", VECTOR ) = (1,0,0,0)
+		Triangle_Pos_0_1("Triangle_Pos_0_1", VECTOR ) = (0,1,0,0)
+		Triangle_Pos_0_2("Triangle_Pos_0_2", VECTOR ) = (0,0,1,0)
 
 	}
 	SubShader
@@ -45,6 +49,10 @@
 			float2 Triangle_Uv_0_1;
 			float2 Triangle_Uv_0_2;
 
+			float3 Triangle_Pos_0_0;
+			float3 Triangle_Pos_0_1;
+			float3 Triangle_Pos_0_2;
+
 
 			v2f vert (appdata v)
 			{
@@ -60,17 +68,12 @@
 			{
 				// sample the texture
 				fixed4 col = tex2D(_MainTex, i.uv);
-				/*
-				float Distance = distance( i.uv, Triangle_Uv_0_0 );
-				Distance = max( Distance, distance( i.uv, Triangle_Uv_0_1 ) );
-				Distance = max( Distance, distance( i.uv, Triangle_Uv_0_2 ) );
-				return float4( Distance, Distance, Distance, 1 );
-				*/
+			
 				if ( PointInsideTriangle( i.uv, Triangle_Uv_0_0, Triangle_Uv_0_1, Triangle_Uv_0_2 ) )
 				{
-					float3 a = float3(1,0,0);
-					float3 b = float3(0,1,0);
-					float3 c = float3(0,0,1);
+					float3 a = Triangle_Pos_0_0;
+					float3 b = Triangle_Pos_0_1;
+					float3 c = Triangle_Pos_0_2;
 					col.xyz = GetTriangleBarycentric3( i.uv, Triangle_Uv_0_0, Triangle_Uv_0_1, Triangle_Uv_0_2,a,b,c);
 					//col.xyz = float3(1,1,0);
 				}
