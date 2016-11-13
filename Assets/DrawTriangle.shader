@@ -53,7 +53,9 @@
 				o.uv = v.uv;
 				return o;
 			}
-			
+
+
+
 			fixed4 frag (v2f i) : SV_Target
 			{
 				// sample the texture
@@ -64,9 +66,15 @@
 				Distance = max( Distance, distance( i.uv, Triangle_Uv_0_2 ) );
 				return float4( Distance, Distance, Distance, 1 );
 				*/
-				if ( PointInTriangle( i.uv, Triangle_Uv_0_0, Triangle_Uv_0_1, Triangle_Uv_0_2 ) )
-					col = float4(0,1,0,1);
-				
+				if ( PointInsideTriangle( i.uv, Triangle_Uv_0_0, Triangle_Uv_0_1, Triangle_Uv_0_2 ) )
+				{
+					float3 a = float3(1,0,0);
+					float3 b = float3(0,1,0);
+					float3 c = float3(0,0,1);
+					col.xyz = GetTriangleBarycentric3( i.uv, Triangle_Uv_0_0, Triangle_Uv_0_1, Triangle_Uv_0_2,a,b,c);
+					//col.xyz = float3(1,1,0);
+				}
+
 				return col;
 			}
 			ENDCG
