@@ -101,6 +101,8 @@ public class GenerateUv : MonoBehaviour {
 
 		var Mesh = ExplodedMesh;
 		
+		var ProgressTitle = "Blitting Triangles";
+		EditorUtility.DisplayProgressBar (ProgressTitle, "Generating UV's...", 0);
 
 		var uvs = UnityEditor.Unwrapping.GeneratePerTriangleUV (Mesh);
 		int TriangleCount = Mesh.GetTriangles (0).Length;
@@ -141,8 +143,10 @@ public class GenerateUv : MonoBehaviour {
 
 			Debug.Log ("Blitting " + BlitTriCount + "/" + TriCount + " triangles"); 
 
-			for (int t = 0;	t <BlitTriCount;	t++) {
-				
+			for (int t = 0;	t <BlitTriCount;	t++) 
+			{
+				EditorUtility.DisplayProgressBar (ProgressTitle, "Blitting " + t + " of " + BlitTriCount + "/" + TriCount + " triangles", t/(float)BlitTriCount );
+
 				if (!SetTriangle (DrawTriangleMat, Mesh, uvs, t, 0))
 					continue;
 				SetTriangleMeta (DrawTriangleMat, Mesh, t, 0);
@@ -150,6 +154,7 @@ public class GenerateUv : MonoBehaviour {
 				Graphics.Blit (TempTexture, LastTexture);
 			}
 			Graphics.Blit (LastTexture, BakedTextureMap);
+			EditorUtility.ClearProgressBar ();
 		}
 	}
 }
