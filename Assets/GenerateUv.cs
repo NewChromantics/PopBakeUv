@@ -10,19 +10,58 @@ public class GenerateUv : MonoBehaviour {
 	public Shader			DrawTriangleShader;
 	public RenderTexture	BakedTextureMap;
 	public Mesh				ExplodedMesh;
+	[Header("0 = all")]
+	[Range(0,200)]
+	public int 				MaxTriangleBakes = 0;
 
-	void SetTriangle(Material DrawTriangleMat,Mesh mesh,Vector2[] uvs,int MeshTriangleIndex,int ShaderTriangleIndex)
+	float GetTrianlgeArea(Vector2 t0,Vector2 t1,Vector2 t2)
 	{
+		var a = Vector2.Distance(t0,t1);
+		var b = Vector2.Distance(t1,t2);
+		var c = Vector2.Distance(t2,t0);
+		var s = (a + b + c) / 2;
+		return Mathf.Sqrt(s * (s-a) * (s-b) * (s-c));
+		/*
+		var v0 = b - a;
+		var v1 = c - a;
+		float d00 = Vector2.Dot(v0, v0);
+		float d01 = Vector2.Dot(v0, v1);
+		float d11 = Vector2.Dot(v1, v1);
+		float denom = d00 * d11 - d01 * d01;
+		return denom /2.0f;
+		*/
+	}
+
+	bool SetTriangle(Material DrawTriangleMat,Mesh mesh,Vector2[] uvs,int MeshTriangleIndex,int ShaderTriangleIndex)
+	{
+		var TriangleUvs = new Vector2[] {
+			uvs [(MeshTriangleIndex * 3) + 0],
+			uvs [(MeshTriangleIndex * 3) + 1],
+			uvs [(MeshTriangleIndex * 3) + 2]
+		};
+
+		//	evaluate size of triangle
+		var TriangleArea = GetTrianlgeArea( TriangleUvs[0], TriangleUvs[1], TriangleUvs[2] );
+		TriangleArea *= BakedTextureMap.width * BakedTextureMap.height;
+	
+		if (TriangleArea < 1) {
+			Debug.Log ("Triangle skipped; area in pixels: " + TriangleArea);
+			return false;
+		}
+	
+
 		for ( int v=0;	v<3;	v++ )
 		{
-			var uv = uvs[(MeshTriangleIndex*3) + v];
+			var uv = TriangleUvs[v];
 		
 			string Uniform = "Triangle_Uv_" + ShaderTriangleIndex + "_" + v;
 			DrawTriangleMat.SetVector(Uniform, new Vector4( uv.x, uv.y, v, 0) );
-			Debug.Log ("SetTriangle( " + Uniform + " ) = (" + uv.x + " " + uv.y + " )");
+			//Debug.Log ("SetTriangle( " + Uniform + " ) = (" + uv.x + " " + uv.y + " )");
 		}
 
 		DrawTriangleMat.SetInt ("TriangleCount", ShaderTriangleIndex + 1); 
+
+		return true;
 	}
 
 	public void ExplodeMesh()
@@ -98,9 +137,14 @@ public class GenerateUv : MonoBehaviour {
 			Graphics.Blit( Texture2D.blackTexture, LastTexture );
 
 			int TriCount = Indexes.Length / 3;
+			int BlitTriCount = (MaxTriangleBakes > 0) ? Mathf.Min (TriCount, MaxTriangleBakes) : TriCount;
 
-			for (int t = 0;	t < TriCount;	t++) {
-				SetTriangle (DrawTriangleMat, Mesh, uvs, t, 0);
+			Debug.Log ("Blitting " + BlitTriCount + "/" + TriCount + " triangles"); 
+
+			for (int t = 0;	t <BlitTriCount;	t++) {
+				
+				if (!SetTriangle (DrawTriangleMat, Mesh, uvs, t, 0))
+					continue;
 				SetTriangleMeta (DrawTriangleMat, Mesh, t, 0);
 				Graphics.Blit (LastTexture, TempTexture, DrawTriangleMat);
 				Graphics.Blit (TempTexture, LastTexture);
