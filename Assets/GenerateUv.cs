@@ -9,6 +9,7 @@ public class GenerateUv : MonoBehaviour {
 
 	public Shader			DrawTriangleShader;
 	public RenderTexture	BakedTextureMap;
+	public bool				GenerateNewUvs = true;
 	public Mesh				ExplodedMesh;
 	[Header("0 = all")]
 	[Range(0,200)]
@@ -34,11 +35,26 @@ public class GenerateUv : MonoBehaviour {
 
 	bool SetTriangle(Material DrawTriangleMat,Mesh mesh,Vector2[] uvs,int MeshTriangleIndex,int ShaderTriangleIndex)
 	{
-		var TriangleUvs = new Vector2[] {
-			uvs [(MeshTriangleIndex * 3) + 0],
-			uvs [(MeshTriangleIndex * 3) + 1],
-			uvs [(MeshTriangleIndex * 3) + 2]
-		};
+		bool IndexedUvs = uvs.Length == mesh.vertices.Length;
+		Vector2[] TriangleUvs;
+
+		if ( IndexedUvs )
+		{
+			var Indexes = mesh.GetIndices (0);
+			TriangleUvs = new Vector2[] {
+				uvs [Indexes[(MeshTriangleIndex * 3) + 0]],
+				uvs [Indexes[(MeshTriangleIndex * 3) + 1]],
+				uvs [Indexes[(MeshTriangleIndex * 3) + 2]]
+			};
+		}
+		else
+		{
+			TriangleUvs = new Vector2[] {
+				uvs [(MeshTriangleIndex * 3) + 0],
+				uvs [(MeshTriangleIndex * 3) + 1],
+				uvs [(MeshTriangleIndex * 3) + 2]
+			};
+		}
 
 		//	evaluate size of triangle
 		var TriangleArea = GetTrianlgeArea( TriangleUvs[0], TriangleUvs[1], TriangleUvs[2] );
@@ -102,28 +118,29 @@ public class GenerateUv : MonoBehaviour {
 		var Mesh = ExplodedMesh;
 		
 		var ProgressTitle = "Blitting Triangles";
-		EditorUtility.DisplayProgressBar (ProgressTitle, "Generating UV's...", 0);
 
-		var uvs = UnityEditor.Unwrapping.GeneratePerTriangleUV (Mesh);
-		int TriangleCount = Mesh.GetTriangles (0).Length;
-		Debug.Log ("Generated " + uvs.Length + " uvs for " + Mesh.vertexCount + " vertexes; mesh uv count: " + Mesh.uv.Length + " trianglecount: " + TriangleCount);
+		if (GenerateNewUvs) {
+			EditorUtility.DisplayCancelableProgressBar (ProgressTitle, "Generating UV's...", 0);
 
+			var uvs = UnityEditor.Unwrapping.GeneratePerTriangleUV (Mesh);
+			int TriangleCount = Mesh.GetTriangles (0).Length;
+			Debug.Log ("Generated " + uvs.Length + " uvs for " + Mesh.vertexCount + " vertexes; mesh uv count: " + Mesh.uv.Length + " trianglecount: " + TriangleCount);
 
-		//	bake new uv's
-		var Indexes = Mesh.GetIndices(0);
-		List<Vector2> SharedUvs = new List<Vector2> ();
-		Mesh.GetUVs (0, SharedUvs);
+			//	bake new uv's
+			List<Vector2> SharedUvs = new List<Vector2> ();
+			Mesh.GetUVs (0, SharedUvs);
 
-		if (Indexes.Length != uvs.Length)
-			throw new System.Exception ("Index/uv size mismatch");
-		
-		for (int i = 0;	i < Indexes.Length;	i++)
-		{
-			var VertexIndex = Indexes [i];
-			SharedUvs [VertexIndex] = uvs [i];
+			var Indexes = Mesh.GetIndices(0);
+			if (Indexes.Length != uvs.Length)
+				throw new System.Exception ("Index/uv size mismatch");
+			
+			for (int i = 0;	i < Indexes.Length;	i++)
+			{
+				var VertexIndex = Indexes [i];
+				SharedUvs [VertexIndex] = uvs [i];
+			}
+			Mesh.SetUVs (0, SharedUvs);
 		}
-		Mesh.SetUVs (0, SharedUvs);
-
 
 
 
@@ -138,20 +155,34 @@ public class GenerateUv : MonoBehaviour {
 			//	clear 
 			Graphics.Blit( Texture2D.blackTexture, LastTexture );
 
+			var Indexes = Mesh.GetIndices(0);
 			int TriCount = Indexes.Length / 3;
 			int BlitTriCount = (MaxTriangleBakes > 0) ? Mathf.Min (TriCount, MaxTriangleBakes) : TriCount;
 
 			Debug.Log ("Blitting " + BlitTriCount + "/" + TriCount + " triangles"); 
 
+			List<Vector2> uvs_List = new List<Vector2> ();
+			Mesh.GetUVs(0,uvs_List);
+			var uvs = uvs_List.ToArray ();
+
 			for (int t = 0;	t <BlitTriCount;	t++) 
 			{
-				EditorUtility.DisplayProgressBar (ProgressTitle, "Blitting " + t + " of " + BlitTriCount + "/" + TriCount + " triangles", t/(float)BlitTriCount );
+				if (EditorUtility.DisplayCancelableProgressBar (ProgressTitle, "Blitting " + t + " of " + BlitTriCount + "/" + TriCount + " triangles", t / (float)BlitTriCount))
+					break;
 
-				if (!SetTriangle (DrawTriangleMat, Mesh, uvs, t, 0))
-					continue;
-				SetTriangleMeta (DrawTriangleMat, Mesh, t, 0);
-				Graphics.Blit (LastTexture, TempTexture, DrawTriangleMat);
-				Graphics.Blit (TempTexture, LastTexture);
+				try
+				{
+					if (!SetTriangle (DrawTriangleMat, Mesh, uvs, t, 0))
+						continue;
+					SetTriangleMeta (DrawTriangleMat, Mesh, t, 0);
+					Graphics.Blit (LastTexture, TempTexture, DrawTriangleMat);
+					Graphics.Blit (TempTexture, LastTexture);
+				}
+				catch {
+					EditorUtility.ClearProgressBar ();
+					Graphics.Blit (LastTexture, BakedTextureMap);
+					throw;
+				}
 			}
 			Graphics.Blit (LastTexture, BakedTextureMap);
 			EditorUtility.ClearProgressBar ();
